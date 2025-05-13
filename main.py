@@ -1,4 +1,5 @@
 import pygame
+import time 
 # initialise pygame
 pygame.init()
 
@@ -112,6 +113,42 @@ in_math_room=False
 # to set up the background image for the math room
 math_room_bg=pygame.transform.scale(pygame.image.load("math_room.webp"), (800,600))
 
+# to set the math puzzle
+show_math_puzzle=False
+current_question_index=0
+math_question=[
+    {"Question": "What is the square root of 196, divided by 7, multiplied by 5?", "Answer":10},
+    {"Question": "What is the cube root of 27, multiplied by 12?", "Answer":36},
+    {"Question": "What is 10+11+12+13+14+15+16?", "Answer":91},
+]
+user_input=""
+feedback_message="" 
+puzzle_completed=False
+font=pygame.font.SysFont(None, 30)
+# to declare variables for puzzle completion and key collection
+puzzle_completed=False
+key_collected=False
+show_congratulations=False
+show_collect_key_button=True
+show_success_message=False
+show_instruction_message=False
+
+#font for the congratulations message
+big_font=pygame.font.SysFont(None, 30)
+#inventory
+inventory=[]
+
+#font sizes for the game over message and time left text
+font_large=pygame.font.SysFont("Arial", 60)
+font_medium= pygame.font.SysFont("Arial", 40)
+
+# to define restart button rect
+restart_button_width = 200
+restart_button_height = 50
+restart_button = pygame.Surface((restart_button_width, restart_button_height))
+restart_button.fill((0, 128, 0))  # Dark green color
+restart_button_rect = restart_button.get_rect()
+restart_button_rect.center = (400, 300)
 
 
 
@@ -120,31 +157,89 @@ math_room_bg=pygame.transform.scale(pygame.image.load("math_room.webp"), (800,60
 
 # Game loop function to start the game
 def game_loop():
-    global player_x, player_y, in_math_room
+    game_timer=30   
+    start_time=time.time() 
+    game_over=False  
+    global player_x, player_y, in_math_room, show_math_puzzle, current_question_index, user_input, feedback_message
+    global show_congratulations, show_collect_key_button, show_success_message, show_instruction_message
+    global inventory
+    global restart_button_rect
     running=True
     while running:
+        
         for event in pygame.event.get():
             if event.type==pygame.QUIT:
                 running=False
-        # to check for key presses
-            if event.type== pygame.KEYDOWN:
-                if event.key==pygame.K_UP:
-                    keys_pressed["up"]= True
-                elif event.key==pygame.K_DOWN:
-                    keys_pressed["down"]= True
-                elif event.key== pygame.K_LEFT:
-                    keys_pressed["left"]= True
-                elif event.key== pygame.K_RIGHT:
-                    keys_pressed["right"]= True
-            elif event.type==pygame.KEYUP:
-                if event.key== pygame.K_UP:
-                    keys_pressed["up"]= False
-                elif event.key==pygame.K_DOWN:
-                    keys_pressed["down"]= False
-                elif event.key==pygame.K_LEFT:
-                    keys_pressed["left"]= False
-                elif event.key==pygame.K_RIGHT:
-                    keys_pressed["right"]= False
+            # restart button click handler
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_x, mouse_y = pygame.mouse.get_pos()
+                #  to Check if the restart button was clicked
+                if restart_button_rect.collidepoint(mouse_x, mouse_y):
+                    # to  Reset the game variables when the restart button is clicked
+                    game_timer = 30
+                    start_time = time.time()  # Restart the timer
+                    game_over = False
+                    in_math_room=False
+                    # Reset player position and other variables
+                    player_x, player_y = 100, 100
+                    inventory.clear()  # Clear any collected items
+                    feedback_message= ""
+                    current_question_index = 0
+                    user_input = ""
+                    show_math_puzzle = False
+                    show_congratulations = False
+                    show_collect_key_button = False
+                    show_success_message = False
+                    show_instruction_message = False
+
+            # to handle input if the puzzle is being shown
+            if show_math_puzzle:
+                if event.type==pygame.KEYDOWN:
+                    if event.key==pygame.K_RETURN:
+                        #to submit the answer
+                        try:
+                            if int(user_input)==math_question[current_question_index]["Answer"]:
+                                feedback_message="Correct!"
+                                current_question_index +=1
+                                if current_question_index>= len(math_question):
+                                    show_math_puzzle=False
+                                    current_question_index=0
+                                    user_input=""
+                                    show_congratulations=True
+                                else:
+                                    user_input=""
+                            else:
+                                feedback_message="Wrong, try again!"
+                                user_input=""
+                        except ValueError:
+                            feedback_message="Please enter a number"
+                            user_input=""
+                    elif event.key==pygame.K_BACKSPACE:
+                        user_input=user_input[:-1]
+                    else:
+                        if event.unicode.isdigit():
+                            user_input +=event.unicode
+            else:
+                # to check for key presses
+                if event.type== pygame.KEYDOWN:
+                    if event.key==pygame.K_UP:
+                        keys_pressed["up"]= True
+                    elif event.key==pygame.K_DOWN:
+                        keys_pressed["down"]= True
+                    elif event.key== pygame.K_LEFT:
+                        keys_pressed["left"]= True
+                    elif event.key== pygame.K_RIGHT:
+                        keys_pressed["right"]= True
+                elif event.type==pygame.KEYUP:
+                    if event.key== pygame.K_UP:
+                        keys_pressed["up"]= False
+                    elif event.key==pygame.K_DOWN:
+                        keys_pressed["down"]= False
+                    elif event.key==pygame.K_LEFT:
+                        keys_pressed["left"]= False
+                    elif event.key==pygame.K_RIGHT:
+                        keys_pressed["right"]= False
+                    
         if keys_pressed["up"]:
             player_y -= player_speed
         if keys_pressed["down"]:
@@ -153,13 +248,33 @@ def game_loop():
             player_x -= player_speed
         if keys_pressed["right"]:
             player_x += player_speed
+        # to restrict player movement inside the screen boundaries
+        if in_math_room:
+        # Stay inside the math room screen size 
+            player_x = max(0, min(player_x, 800 - 25))  
+            player_y = max(0, min(player_y, 600 - 20))  
+        else:
+            # restricting the movement in the lobby
+            player_x = max(0, min(player_x, 800 - 25))
+            player_y = max(0, min(player_y, 600 - 20))
+                
+            
 
         player_rect=pygame.Rect(player_x, player_y, 25, 20)
+        # to update the timer
+        if not game_over:
+            time_left=game_timer-int(time.time() - start_time)
+            if time_left<=0:
+                game_over=True
 
         #to check if the player has reached the math room door
         math_room_door_rect= pygame.Rect(150,150,50,100)
-        if player_rect.colliderect(math_room_door_rect):
+        if player_rect.colliderect(math_room_door_rect) and not in_math_room:
             in_math_room= True
+            show_math_puzzle=True
+            current_question_index=0
+            user_input=""
+            feedback_message=""
         #to display background and to only draw the lobby elements if the player is in the lobby
         if in_math_room:
             screen.blit(math_room_bg, (0,0))
@@ -177,8 +292,9 @@ def game_loop():
                 label_rect=label_text.get_rect(center=label["pos"])
                 screen.blit(label_text, label_rect)
             
-            #to Draw the invisible player as a red rectangle
+            #to Draw the invisible player as a black rectangle
             pygame.draw.rect(screen, (0,0,0), player_rect)
+
             instruction_text=[
                 "you are now in the Lobby.",
                 "All other Rooms are locked except the Math Room.",
@@ -198,8 +314,103 @@ def game_loop():
             # calling the function of the movement instruction 
             draw_movement_instructions(screen)
 
+            # to draw the puzzle interface
+        if show_math_puzzle:
+             # to draw a backkground box for the puzzle
+            pygame.draw.rect(screen,(255,255,255), (150,250,500,200))
+            pygame.draw.rect(screen, (0,0,0), (150,250,500,200),4)
+            #to display the current question
+            question_surface=font.render("Question: "+ math_question[current_question_index]["Question"], True, (0,0,0))
+            screen.blit(question_surface, (170,280))
+            #to display the user's current input
+            input_surface=font.render("Your Answer: " + user_input, True, (0,0,0))
+            screen.blit(input_surface, (170,340))
+            #to display feedback
+            feedback_surface=font.render(feedback_message, True, (0,128,0) if feedback_message=="Correct!" else (255,0,0))
+            screen.blit(feedback_surface, (170,400))
+            # to draw an hint button
+            hint_button_color=(0,100,0)
+            hint_button_rect = pygame.Rect(550, 202, 100, 40)  # Adjust x=530 (150+500-120), y=260 (just below top edge)
+            pygame.draw.rect(screen, hint_button_color, hint_button_rect)
+            hint_text = font.render("Hint", True, (255, 255, 255))
+            screen.blit(hint_text, (hint_button_rect.x + 20, hint_button_rect.y + 5))
+        # to display conversation message and button after all questions are completed
+        if show_congratulations:
+            #to display the congratulations message
+            message_text="Congratulations! You just earned a key to unlock the next Room."
+            message_surface=big_font.render(message_text, True, (0,128,0))
+            message_rect=message_surface.get_rect(center=(screen.get_width() // 2, 300))
+            screen.blit(message_surface, message_rect)
+            #to draw the button to collect the new key
+            button_rect = pygame.Rect(screen.get_width() // 2 - 100, 360, 200, 50)
+            pygame.draw.rect(screen, (0, 128, 0), button_rect)
+            button_text = font.render("Click to collect Key", True, (255, 255, 255))
+            screen.blit(button_text, (button_rect.x + 15, button_rect.y + 15))
+ 
+            mouse_x, mouse_y=0, 0
+            if show_congratulations and  event.type==pygame.MOUSEBUTTONDOWN:
+                mouse_x, mouse_y=pygame.mouse.get_pos()
+                if screen.get_width() // 2 - 100 <=mouse_x <=screen.get_width() // 2 + 100 and 360 <= mouse_y <=410:
+                    show_collect_key_button=False
+                    show_congratulations=False
+                    if "Key" not in inventory:
+                        inventory.append("Key")
+                    key_collected=True
+                    show_success_message=True
+                    show_instruction_message=True
+                    print("Key collected")
+
+            # inventory box
+        if inventory:
+            inventory_rect=pygame.Rect(10,10,120,60)
+            pygame.draw.rect(screen, (255,255,255), inventory_rect)
+            pygame.draw.rect(screen, (0,0,0), inventory_rect, 2)
+            inventory_text=font.render("Inventory:", True, (0,0,0))
+            screen.blit(inventory_text, (inventory_rect.x +5, inventory_rect.y+5))
+            for i, item in enumerate(inventory):
+                item_text=font.render(item, True, (0,0,0))
+                screen.blit(item_text,(inventory_rect.x + 10, inventory_rect.y + 25 + i * 20))
+        
+        #to show success and instruction messages
+        if show_success_message:
+            success_text="Key collected successfully and added to your inventory"
+            success_surface=big_font.render(success_text, True, (0,0,0))
+            success_rect=success_surface.get_rect(center=(screen.get_width() // 2, 280))
+            screen.blit(success_surface, success_rect)
+        if show_instruction_message:
+            instruction_maths_text="Return to the lobby and use the key to unlock the door"
+            instruction_surface=big_font.render(instruction_maths_text, True, (0,0,0))
+            instruction_rect=instruction_surface.get_rect(center=(screen.get_width() // 2,330))
+            screen.blit(instruction_surface, instruction_rect)
+
+        #to draw the timer
+        if not game_over:
+            timer_text=font.render(f"Time Left: {time_left} seconds", True, (255,0,0))
+            text_rect=timer_text.get_rect()
+            text_rect.centerx=(screen.get_width() // 2)
+            text_rect.top=20
+            screen.blit(timer_text, text_rect)
+        # to display game over message
+        if game_over:
+            game_over_text=font_large.render("Time's Up! Game Over", True, (255,0,0))
+            game_over_rect=game_over_text.get_rect(center=(screen.get_width() // 2, screen.get_height() // 2))
+            screen.blit(game_over_text, game_over_rect)
+            # to display the restart button
+            restart_button_text=font_medium.render("Restart", True, (255,255,255))
+            restart_button_rect=pygame.Rect(screen.get_width() // 2 - 100, screen.get_height() // 2 + 50,200,60)
+            pygame.draw.rect(screen, (0,100,0), restart_button_rect)
+            screen.blit(restart_button_text, restart_button_text.get_rect(center=restart_button_rect.center))
+        
+
+       
+
+
+           
+
+
         # to draw the player in both rooms
         pygame.draw.rect(screen, (0,0,0), player_rect)
+           
             
             
        
